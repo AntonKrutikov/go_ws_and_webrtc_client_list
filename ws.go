@@ -11,38 +11,38 @@ type WsClients struct {
 	Mu  sync.Mutex
 }
 
-func (wsc *WsClients) Add(ip string, ws *websocket.Conn) {
-	wsc.Mu.Lock()
-	defer wsc.Mu.Unlock()
-	if _, ok := wsc.Map[ip]; ok {
+func (clients *WsClients) Add(ip string, ws *websocket.Conn) {
+	clients.Mu.Lock()
+	defer clients.Mu.Unlock()
+	if _, ok := clients.Map[ip]; ok {
 		return
 	} else {
-		wsc.Map[ip] = ws
+		clients.Map[ip] = ws
 	}
 }
 
-func (wsc *WsClients) Remove(ip string) {
-	wsc.Mu.Lock()
-	defer wsc.Mu.Unlock()
-	if _, ok := wsc.Map[ip]; ok {
-		delete(wsc.Map, ip)
+func (clients *WsClients) Remove(ip string) {
+	clients.Mu.Lock()
+	defer clients.Mu.Unlock()
+	if _, ok := clients.Map[ip]; ok {
+		delete(clients.Map, ip)
 	}
 }
 
-func (wsc *WsClients) List() []string {
-	wsc.Mu.Lock()
-	defer wsc.Mu.Unlock()
+func (clients *WsClients) List() []string {
+	clients.Mu.Lock()
+	defer clients.Mu.Unlock()
 	list := []string{}
-	for k := range wsc.Map {
+	for k := range clients.Map {
 		list = append(list, k)
 	}
 	return list
 }
 
-func (wsc *WsClients) Broadcast(from *websocket.Conn, msg string) {
-	wsc.Mu.Lock()
-	defer wsc.Mu.Unlock()
-	for _, ws := range wsc.Map {
+func (clients *WsClients) Broadcast(from *websocket.Conn, msg string) {
+	clients.Mu.Lock()
+	defer clients.Mu.Unlock()
+	for _, ws := range clients.Map {
 		if ws != from {
 			websocket.Message.Send(ws, msg)
 		}

@@ -51,6 +51,12 @@ func (clients *WebRTCClients) Broadcast(from *webrtc.DataChannel, msg string) {
 	}
 }
 
+func onConnectionStateChanged(d *webrtc.DataChannel, pcs webrtc.PeerConnectionState) {
+	if pcs == webrtc.PeerConnectionStateClosed {
+		d.Close()
+	}
+}
+
 func onDataChannel(peer *webrtc.PeerConnection, d *webrtc.DataChannel) {
 	pairs, err := peer.SCTP().Transport().ICETransport().GetSelectedCandidatePair()
 	// Basicly this err can't happen, because if err - connection not exists
@@ -67,6 +73,9 @@ func onDataChannel(peer *webrtc.PeerConnection, d *webrtc.DataChannel) {
 	}
 	response, _ := json.Marshal(msg)
 	WebRTCClientStore.Broadcast(d, string(response))
+
+	// DataChannel.Close is not fired if client don't send close signal (close tab fro example) - use state event to detect client leave
+	peer.OnConnectionStateChange(func(pcs webrtc.PeerConnectionState) { onConnectionStateChanged(d, pcs) })
 
 	d.OnClose(func() {
 		WebRTCClientStore.Remove(pairs.Remote.String())
