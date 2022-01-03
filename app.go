@@ -83,7 +83,7 @@ func webrtcHandler(w http.ResponseWriter, r *http.Request) {
 	config := webrtc.Configuration{
 		ICEServers: []webrtc.ICEServer{
 			{
-				URLs: []string{"stun:stun.l.google.com:19302?transport=tcp"},
+				URLs: []string{"stun:stun.l.google.com:19302"},
 			},
 		},
 	} //ommited for simplicity

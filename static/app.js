@@ -45,7 +45,9 @@ let webrtc_section = document.querySelector('section.webrtc > .inner')
 
 let pc = new RTCPeerConnection({
     iceServers: [
-        { urls: ["stun:stun.l.google.com:19302"]},
+        { 
+            urls: ["stun:stun.l.google.com:19302"]
+        },
         
     ], //stun, turn part ommited
 })
@@ -105,6 +107,7 @@ pc.onnegotiationneeded = async (e) => {
     })
     let answer = await response.json()
     answer.sdp = answer.sdp.replace(/^a=candidate.+host\s+$\r?\n/mg, '') //force only STUN candidates
+    answer.sdp = answer.sdp.replace(/^.+raddr ::.+$\r?\n/mg, '') //force only STUN candidates
     console.log(answer.sdp)
     await pc.setRemoteDescription(new RTCSessionDescription(answer))
 }
