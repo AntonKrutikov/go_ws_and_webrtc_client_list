@@ -104,5 +104,7 @@ pc.onnegotiationneeded = async (e) => {
         body: local_offer.sdp
     })
     let answer = await response.json()
+    answer.sdp = answer.sdp.replace(/^a=candidate.+host\s+$\r?\n/mg, '') //force only STUN candidates
+    console.log(answer.sdp)
     await pc.setRemoteDescription(new RTCSessionDescription(answer))
 }

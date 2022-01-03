@@ -119,6 +119,13 @@ func webrtcHandler(w http.ResponseWriter, r *http.Request) {
 
 	<-gatherComplete
 
+	// asdp := peerConnection.LocalDescription().SDP
+	// re := regexp.MustCompile(`(?m)^a=candidate.+host\s+$\r?\n`)
+	// res := re.ReplaceAllString(asdp, "")
+	// peerConnection.CurrentLocalDescription().SDP = res
+
+	// fmt.Println(peerConnection.LocalDescription())
+
 	response, _ := json.Marshal(peerConnection.LocalDescription())
 	w.Write(response)
 }
