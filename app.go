@@ -127,5 +127,5 @@ func main() {
 	http.Handle("/", http.FileServer(http.Dir("static")))
 	http.Handle("/ws", websocket.Handler(wsHandler))
 	http.HandleFunc("/webrtc/sdp", webrtcHandler)
-	http.ListenAndServe("localhost:8080", nil)
+	http.ListenAndServe("0.0.0.0:8080", nil)
 }
