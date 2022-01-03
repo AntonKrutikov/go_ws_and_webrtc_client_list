@@ -93,21 +93,30 @@ pc_datachannel.onmessage = (data_m) => {
 pc.onconnectionstatechange = (e) => {
 }
 
-pc.onicecandidate = (e) => {
-    console.log(e.candidate?.candidate)
+pc.onicecandidate = async (e) => {
+    if (e.candidate === null) {
+        console.log("OFFER\n", pc.localDescription.sdp)
+        let response = await fetch('/webrtc/sdp', {
+            method: 'POST',
+            body: pc.localDescription.sdp
+        })
+        let answer = await response.json()
+        console.log("ANSWER\n", answer.sdp)
+        await pc.setRemoteDescription(new RTCSessionDescription(answer))
+    }
 }
 
 pc.onnegotiationneeded = async (e) => {
     let local_offer = await pc.createOffer()
     pc.setLocalDescription(local_offer)
 
-    let response = await fetch('/webrtc/sdp', {
-        method: 'POST',
-        body: local_offer.sdp
-    })
-    let answer = await response.json()
-    // answer.sdp = answer.sdp.replace(/^a=candidate.+host\s+$\r?\n/mg, '') //force only STUN candidates
-    // answer.sdp = answer.sdp.replace(/^.+raddr ::.+$\r?\n/mg, '') //force only STUN candidates
-    console.log(answer.sdp)
-    await pc.setRemoteDescription(new RTCSessionDescription(answer))
+    // let response = await fetch('/webrtc/sdp', {
+    //     method: 'POST',
+    //     body: local_offer.sdp
+    // })
+    // let answer = await response.json()
+    // // answer.sdp = answer.sdp.replace(/^a=candidate.+host\s+$\r?\n/mg, '') //force only STUN candidates
+    // // answer.sdp = answer.sdp.replace(/^.+raddr ::.+$\r?\n/mg, '') //force only STUN candidates
+    // console.log(answer.sdp)
+    // await pc.setRemoteDescription(new RTCSessionDescription(answer))
 }

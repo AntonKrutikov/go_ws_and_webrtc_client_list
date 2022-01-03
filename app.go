@@ -80,6 +80,8 @@ func webrtcHandler(w http.ResponseWriter, r *http.Request) {
 		SDP:  string(sdp),
 	}
 
+	fmt.Println(offer)
+
 	config := webrtc.Configuration{
 		ICEServers: []webrtc.ICEServer{
 			{
