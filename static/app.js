@@ -1,7 +1,7 @@
 // WebSocket
 let ws_section = document.querySelector('section.ws > .inner')
 
-ws = new WebSocket("ws://localhost:8080/ws")
+ws = new WebSocket(`ws://${window.location.host}/ws`)
 ws.onopen = () => {
     console.log('WebSocket connected')
 }
@@ -44,7 +44,10 @@ ws.onmessage = (ws_message) => {
 let webrtc_section = document.querySelector('section.webrtc > .inner')
 
 let pc = new RTCPeerConnection({
-    iceServers: [] //stun, turn part ommited
+    iceServers: [
+        { urls: ["stun:stun.l.google.com:19302"]},
+        
+    ], //stun, turn part ommited
 })
 let pc_datachannel = pc.createDataChannel('')
 
@@ -86,6 +89,10 @@ pc_datachannel.onmessage = (data_m) => {
 }
 
 pc.onconnectionstatechange = (e) => {
+}
+
+pc.onicecandidate = (e) => {
+    console.log(e.candidate?.candidate)
 }
 
 pc.onnegotiationneeded = async (e) => {

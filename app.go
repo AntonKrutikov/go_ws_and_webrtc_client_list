@@ -80,7 +80,13 @@ func webrtcHandler(w http.ResponseWriter, r *http.Request) {
 		SDP:  string(sdp),
 	}
 
-	config := webrtc.Configuration{} //ommited for simplicity
+	config := webrtc.Configuration{
+		ICEServers: []webrtc.ICEServer{
+			{
+				URLs: []string{"stun:stun.l.google.com:19302?transport=tcp"},
+			},
+		},
+	} //ommited for simplicity
 	peerConnection, err := webrtc.NewPeerConnection(config)
 	if err != nil {
 		fmt.Println(err)
@@ -89,6 +95,10 @@ func webrtcHandler(w http.ResponseWriter, r *http.Request) {
 	// Set datachannel handler
 	// Found a strange behaviour as *webrtc.DataChannel return always nil on .Transport() - pass pc too
 	peerConnection.OnDataChannel(func(d *webrtc.DataChannel) { onDataChannel(peerConnection, d) })
+
+	peerConnection.OnICECandidate(func(i *webrtc.ICECandidate) {
+		fmt.Println(i)
+	})
 
 	err = peerConnection.SetRemoteDescription(offer)
 	if err != nil {
