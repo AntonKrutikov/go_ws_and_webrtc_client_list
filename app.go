@@ -70,7 +70,50 @@ func wsHandler(ws *websocket.Conn) {
 	}
 }
 
+type Peer struct {
+	Connection    *webrtc.PeerConnection
+	IceCandidates struct {
+		NewLocal []webrtc.ICECandidateInit
+	}
+}
+
+type Session struct {
+	ID   string
+	Peer *Peer
+}
+
+var SessionStore = struct {
+	Map map[string]*Session
+	Mu  sync.Mutex
+}{
+	Map: map[string]*Session{},
+	Mu:  sync.Mutex{},
+}
+
+func login(w http.ResponseWriter, r *http.Request) {
+	sessionId := pseudo_uuid()
+	SessionStore.Mu.Lock()
+	SessionStore.Map[sessionId] = &Session{
+		ID: sessionId,
+		Peer: &Peer{
+			Connection: nil,
+			IceCandidates: struct {
+				NewLocal []webrtc.ICECandidateInit
+			}{},
+		},
+	}
+	SessionStore.Mu.Unlock()
+
+	w.Write([]byte(sessionId))
+}
+
 func webrtcHandler(w http.ResponseWriter, r *http.Request) {
+	sessionId := r.URL.Query().Get("session")
+	if sessionId == "" {
+		w.WriteHeader(401)
+		return
+	}
+
 	sdp, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		fmt.Println(err)
@@ -80,27 +123,34 @@ func webrtcHandler(w http.ResponseWriter, r *http.Request) {
 		SDP:  string(sdp),
 	}
 
-	fmt.Println(offer)
-
 	config := webrtc.Configuration{
 		ICEServers: []webrtc.ICEServer{
 			{
 				URLs: []string{"stun:stun.l.google.com:19302"},
 			},
 		},
-	} //ommited for simplicity
+	}
 	peerConnection, err := webrtc.NewPeerConnection(config)
 	if err != nil {
 		fmt.Println(err)
 	}
 
+	//Add to session
+	SessionStore.Mu.Lock()
+	SessionStore.Map[sessionId].Peer.Connection = peerConnection
+	SessionStore.Mu.Unlock()
+
+	peerConnection.OnICECandidate(func(candidate *webrtc.ICECandidate) {
+		SessionStore.Mu.Lock()
+		if candidate != nil {
+			SessionStore.Map[sessionId].Peer.IceCandidates.NewLocal = append(SessionStore.Map[sessionId].Peer.IceCandidates.NewLocal, candidate.ToJSON())
+		}
+		SessionStore.Mu.Unlock()
+	})
+
 	// Set datachannel handler
 	// Found a strange behaviour as *webrtc.DataChannel return always nil on .Transport() - pass pc too
 	peerConnection.OnDataChannel(func(d *webrtc.DataChannel) { onDataChannel(peerConnection, d) })
-
-	peerConnection.OnICECandidate(func(i *webrtc.ICECandidate) {
-		fmt.Println(i)
-	})
 
 	err = peerConnection.SetRemoteDescription(offer)
 	if err != nil {
@@ -112,29 +162,61 @@ func webrtcHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(err)
 	}
 
-	gatherComplete := webrtc.GatheringCompletePromise(peerConnection)
-
 	err = peerConnection.SetLocalDescription(answer)
 	if err != nil {
 		fmt.Println(err)
 	}
 
-	<-gatherComplete
-
-	// asdp := peerConnection.LocalDescription().SDP
-	// re := regexp.MustCompile(`(?m)^a=candidate.+host\s+$\r?\n`)
-	// res := re.ReplaceAllString(asdp, "")
-	// peerConnection.CurrentLocalDescription().SDP = res
-
-	// fmt.Println(peerConnection.LocalDescription())
-
 	response, _ := json.Marshal(peerConnection.LocalDescription())
 	w.Write(response)
 }
 
+func iceHandler(w http.ResponseWriter, r *http.Request) {
+	sessionId := r.URL.Query().Get("session")
+	if sessionId == "" {
+		w.WriteHeader(401)
+		return
+	}
+	if r.Method == "GET" {
+		// Return new collected candidates from last request
+		SessionStore.Mu.Lock()
+		candidates := SessionStore.Map[sessionId].Peer.IceCandidates.NewLocal
+		fmt.Printf("\n\nLocal ice candidates gathered from last request:\n")
+		for _, c := range candidates {
+			fmt.Println(c.Candidate)
+		}
+		fmt.Printf("--END--\n")
+		SessionStore.Map[sessionId].Peer.IceCandidates.NewLocal = nil
+		SessionStore.Mu.Unlock()
+
+		body, _ := json.Marshal(candidates)
+		w.Write(body)
+	}
+	if r.Method == "POST" {
+		candidates := []webrtc.ICECandidateInit{}
+		json.NewDecoder(r.Body).Decode(&candidates)
+
+		fmt.Printf("\n\nRemote ice candidates portion recieved:\n")
+		for _, c := range candidates {
+			fmt.Println(c.Candidate)
+		}
+		fmt.Printf("--END--\n\n")
+
+		SessionStore.Mu.Lock()
+		con := SessionStore.Map[sessionId].Peer.Connection
+		SessionStore.Mu.Unlock()
+
+		for _, c := range candidates {
+			con.AddICECandidate(c)
+		}
+	}
+}
+
 func main() {
 	http.Handle("/", http.FileServer(http.Dir("static")))
+	http.HandleFunc("/login", login)
 	http.Handle("/ws", websocket.Handler(wsHandler))
 	http.HandleFunc("/webrtc/sdp", webrtcHandler)
+	http.HandleFunc("/webrtc/ice", iceHandler)
 	http.ListenAndServe("0.0.0.0:8080", nil)
 }

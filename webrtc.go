@@ -65,7 +65,7 @@ func onDataChannel(peer *webrtc.PeerConnection, d *webrtc.DataChannel) {
 		return
 	}
 
-	print(pairs)
+	print("Selected pair: ", pairs.String())
 
 	// Can't return only ip and port, because connection can be related
 	WebRTCClientStore.Add(pairs.Remote.String(), d)
